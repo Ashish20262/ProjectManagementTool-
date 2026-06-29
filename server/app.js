@@ -7,6 +7,7 @@ import morgan from "morgan";
 
 import healthRoutes from "./routes/healthRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import projectRoutes from "./routes/projectRoutes.js";
 import notFoundHandler from "./middlewares/notFoundHandler.js";
 import errorHandler from "./middlewares/errorHandler.js";
 
@@ -24,11 +25,12 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(helmet());
 app.use(cookieParser());
 app.use(morgan("dev"));
-app.use(helmet());
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/projects", projectRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
