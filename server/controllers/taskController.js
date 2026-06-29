@@ -1,0 +1,162 @@
+import Task from '../models/Task.js';
+import Project from '../models/Project.js';
+
+const validateTaskInput = ({ title, project, status, priority }) => {
+  const errors = [];
+
+  if (!title || !title.trim()) {
+    errors.push('Title is required');
+  }
+
+  if (!project) {
+    errors.push('Project is required');
+  }
+
+  const statusOptions = ['Todo', 'In Progress', 'Done'];
+  if (status && !statusOptions.includes(status)) {
+    errors.push('Invalid status value');
+  }
+
+  const priorityOptions = ['Low', 'Medium', 'High'];
+  if (priority && !priorityOptions.includes(priority)) {
+    errors.push('Invalid priority value');
+  }
+
+  return { valid: errors.length === 0, errors };
+};
+
+export const createTask = async (req, res, next) => {
+  try {
+    const { title, description, project, assignedTo, status, priority, dueDate } = req.body;
+    const { valid, errors } = validateTaskInput({ title, project, status, priority });
+
+    if (!valid) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    const projectRecord = await Project.findById(project);
+    if (!projectRecord) {
+      return res.status(400).json({ success: false, message: 'Project must be valid' });
+    }
+
+    const task = await Task.create({
+      title,
+      description,
+      project,
+      assignedTo,
+      createdBy: req.user.id,
+      status: status || 'Todo',
+      priority: priority || 'Low',
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+    });
+
+    const populatedTask = await task
+      .populate('project', 'title')
+      .populate('assignedTo', 'name email')
+      .populate('createdBy', 'name email');
+
+    res.status(201).json({ success: true, data: populatedTask });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTasks = async (req, res, next) => {
+  try {
+    const tasks = await Task.find({
+      $or: [{ createdBy: req.user.id }, { assignedTo: req.user.id }],
+    })
+      .sort({ createdAt: -1 })
+      .populate('project', 'title')
+      .populate('assignedTo', 'name email')
+      .populate('createdBy', 'name email');
+
+    res.status(200).json({ success: true, data: tasks });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTaskById = async (req, res, next) => {
+  try {
+    const task = await Task.findById(req.params.id)
+      .populate('project', 'title owner')
+      .populate('assignedTo', 'name email')
+      .populate('createdBy', 'name email');
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    if (
+      !task.createdBy._id.equals(req.user.id) &&
+      !(task.assignedTo && task.assignedTo._id.equals(req.user.id)) &&
+      !task.project.owner.equals(req.user.id)
+    ) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    res.status(200).json({ success: true, data: task });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateTask = async (req, res, next) => {
+  try {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    const { title, description, project, assignedTo, status, priority, dueDate } = req.body;
+    const { valid, errors } = validateTaskInput({ title, project, status, priority });
+
+    if (!valid) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    const projectRecord = await Project.findById(project);
+    if (!projectRecord) {
+      return res.status(400).json({ success: false, message: 'Project must be valid' });
+    }
+
+    task.title = title;
+    task.description = description || '';
+    task.project = project;
+    task.assignedTo = assignedTo;
+    task.status = status || task.status;
+    task.priority = priority || task.priority;
+    task.dueDate = dueDate ? new Date(dueDate) : task.dueDate;
+
+    await task.save();
+    const populatedTask = await task
+      .populate('project', 'title')
+      .populate('assignedTo', 'name email')
+      .populate('createdBy', 'name email');
+
+    res.status(200).json({ success: true, data: populatedTask });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteTask = async (req, res, next) => {
+  try {
+    const task = await Task.findById(req.params.id).populate('project', 'owner');
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    if (!task.project.owner.equals(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'Only project owner can delete tasks' });
+    }
+
+    await task.deleteOne();
+    res.status(200).json({ success: true, message: 'Task deleted' });
+  } catch (error) {
+    next(error);
+  }
+};

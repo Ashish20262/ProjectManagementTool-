@@ -4,6 +4,7 @@ import { FaHome, FaTasks, FaUsers, FaChartPie } from 'react-icons/fa';
 const navItems = [
   { label: 'Home', to: '/', icon: <FaHome size={16} /> },
   { label: 'Projects', to: '/projects', icon: <FaTasks size={16} /> },
+  { label: 'Tasks', to: '/tasks', icon: <FaTasks size={16} /> },
   { label: 'Teams', to: '/teams', icon: <FaUsers size={16} /> },
   { label: 'Reports', to: '/reports', icon: <FaChartPie size={16} /> },
 ];

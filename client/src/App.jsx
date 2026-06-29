@@ -3,6 +3,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import AuthLayout from './layouts/AuthLayout';
 import HomePage from './pages/HomePage';
 import ProjectsPage from './pages/ProjectsPage';
+import TasksPage from './pages/TasksPage';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -24,6 +25,7 @@ function App() {
       >
         <Route index element={<HomePage />} />
         <Route path="projects" element={<ProjectsPage />} />
+        <Route path="tasks" element={<TasksPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/auth/login" replace />} />
     </Routes>
