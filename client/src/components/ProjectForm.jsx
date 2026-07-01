@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 const statusOptions = ['Active', 'Completed', 'Archived'];
 const priorityOptions = ['Low', 'Medium', 'High'];
@@ -12,12 +13,17 @@ const ProjectForm = ({ onSubmit, loading }) => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    await onSubmit(form);
+    try {
+      await onSubmit(form);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error?.message || 'Validation error');
+      throw error;
+    }
     setForm({ title: '', description: '', status: 'Active', priority: 'Low' });
   };
 
   return (
-    <div className="rounded-3xl bg-white p-8 shadow-sm">
+    <div className="card-surface p-8">
       <div>
         <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Create project</p>
         <h2 className="mt-3 text-2xl font-semibold text-slate-900">New project request</h2>
@@ -77,7 +83,7 @@ const ProjectForm = ({ onSubmit, loading }) => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-3xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-70"
+          className="btn-primary w-full"
         >
           {loading ? 'Saving...' : 'Create project'}
         </button>

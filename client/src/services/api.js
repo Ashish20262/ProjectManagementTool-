@@ -8,4 +8,21 @@ const api = axios.create({
   },
 });
 
+api.interceptors.response.use(
+  (response) => {
+    if (response && response.data && typeof response.data.success === 'boolean') {
+      if (!response.data.success) {
+        return Promise.reject(new Error(response.data.message || 'API responded with failure'));
+      }
+      if (!('data' in response.data)) {
+        return Promise.reject(new Error('Malformed API response')); 
+      }
+    }
+    return response;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export default api;

@@ -7,14 +7,15 @@ import {
   deleteTask,
 } from '../controllers/taskController.js';
 import authMiddleware from '../middlewares/authMiddleware.js';
+import validateObjectId from '../middlewares/validateObjectId.js';
 
 const router = express.Router();
 
 router.use(authMiddleware);
 router.post('/', createTask);
 router.get('/', getTasks);
-router.get('/:id', getTaskById);
-router.put('/:id', updateTask);
-router.delete('/:id', deleteTask);
+router.get('/:id', validateObjectId('id'), getTaskById);
+router.put('/:id', validateObjectId('id'), updateTask);
+router.delete('/:id', validateObjectId('id'), deleteTask);
 
 export default router;

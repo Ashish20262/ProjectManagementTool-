@@ -1,29 +1,10 @@
 import Project from '../models/Project.js';
-
-const validateProjectInput = ({ title, status, priority }) => {
-  const errors = [];
-
-  if (!title || !title.trim()) {
-    errors.push('Title is required');
-  }
-
-  const statusOptions = ['Active', 'Completed', 'Archived'];
-  if (status && !statusOptions.includes(status)) {
-    errors.push('Invalid status value');
-  }
-
-  const priorityOptions = ['Low', 'Medium', 'High'];
-  if (priority && !priorityOptions.includes(priority)) {
-    errors.push('Invalid priority value');
-  }
-
-  return { valid: errors.length === 0, errors };
-};
+import { validateProjectInput } from '../validators/projectValidator.js';
 
 export const createProject = async (req, res, next) => {
   try {
     const { title, description, members, status, priority } = req.body;
-    const { valid, errors } = validateProjectInput({ title, status, priority });
+    const { valid, errors } = validateProjectInput({ title, status, priority, members });
 
     if (!valid) {
       return res.status(400).json({ success: false, errors });
@@ -92,7 +73,7 @@ export const updateProject = async (req, res, next) => {
     }
 
     const { title, description, members, status, priority } = req.body;
-    const { valid, errors } = validateProjectInput({ title, status, priority });
+    const { valid, errors } = validateProjectInput({ title, status, priority, members });
 
     if (!valid) {
       return res.status(400).json({ success: false, errors });

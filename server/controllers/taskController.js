@@ -1,42 +1,34 @@
 import Task from '../models/Task.js';
 import Project from '../models/Project.js';
-
-const validateTaskInput = ({ title, project, status, priority }) => {
-  const errors = [];
-
-  if (!title || !title.trim()) {
-    errors.push('Title is required');
-  }
-
-  if (!project) {
-    errors.push('Project is required');
-  }
-
-  const statusOptions = ['Todo', 'In Progress', 'Done'];
-  if (status && !statusOptions.includes(status)) {
-    errors.push('Invalid status value');
-  }
-
-  const priorityOptions = ['Low', 'Medium', 'High'];
-  if (priority && !priorityOptions.includes(priority)) {
-    errors.push('Invalid priority value');
-  }
-
-  return { valid: errors.length === 0, errors };
-};
+import User from '../models/User.js';
+import { validateTaskInput } from '../validators/taskValidator.js';
 
 export const createTask = async (req, res, next) => {
   try {
     const { title, description, project, assignedTo, status, priority, dueDate } = req.body;
-    const { valid, errors } = validateTaskInput({ title, project, status, priority });
+    const { valid, errors } = validateTaskInput({ title, project, status, priority, assignedTo, dueDate });
 
     if (!valid) {
       return res.status(400).json({ success: false, errors });
     }
 
-    const projectRecord = await Project.findById(project);
+    const projectRecord = await Project.findById(project).populate('owner members');
     if (!projectRecord) {
       return res.status(400).json({ success: false, message: 'Project must be valid' });
+    }
+
+    const isProjectMember = projectRecord.owner._id.toString() === req.user.id ||
+      projectRecord.members.some((member) => member._id.toString() === req.user.id);
+
+    if (!isProjectMember) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to create tasks for this project' });
+    }
+
+    if (assignedTo) {
+      const assignedUser = await User.findById(assignedTo);
+      if (!assignedUser) {
+        return res.status(400).json({ success: false, message: 'Assigned user must be valid' });
+      }
     }
 
     const task = await Task.create({
@@ -80,7 +72,7 @@ export const getTasks = async (req, res, next) => {
 export const getTaskById = async (req, res, next) => {
   try {
     const task = await Task.findById(req.params.id)
-      .populate('project', 'title owner')
+      .populate('project', 'title owner members')
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email');
 
@@ -88,11 +80,12 @@ export const getTaskById = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
-    if (
-      !task.createdBy._id.equals(req.user.id) &&
-      !(task.assignedTo && task.assignedTo._id.equals(req.user.id)) &&
-      !task.project.owner.equals(req.user.id)
-    ) {
+    const isCreator = task.createdBy._id.equals(req.user.id);
+    const isAssigned = task.assignedTo && task.assignedTo._id.equals(req.user.id);
+    const isProjectOwner = task.project && task.project.owner.equals(req.user.id);
+    const isProjectMember = task.project && task.project.members.some((member) => member._id.equals(req.user.id));
+
+    if (!isCreator && !isAssigned && !isProjectOwner && !isProjectMember) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
@@ -104,22 +97,47 @@ export const getTaskById = async (req, res, next) => {
 
 export const updateTask = async (req, res, next) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await Task.findById(req.params.id).populate('project', 'owner members');
 
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
     const { title, description, project, assignedTo, status, priority, dueDate } = req.body;
-    const { valid, errors } = validateTaskInput({ title, project, status, priority });
+    const { valid, errors } = validateTaskInput({ title, project, status, priority, assignedTo, dueDate });
 
     if (!valid) {
       return res.status(400).json({ success: false, errors });
     }
 
-    const projectRecord = await Project.findById(project);
+    const projectRecord = await Project.findById(project).populate('owner members');
     if (!projectRecord) {
       return res.status(400).json({ success: false, message: 'Project must be valid' });
+    }
+
+    const isCreator = task.createdBy.equals(req.user.id);
+    const isAssigned = task.assignedTo ? task.assignedTo.equals(req.user.id) : false;
+    const isProjectOwner = task.project && task.project.owner.equals(req.user.id);
+    const isProjectMember = task.project && task.project.members.some((member) => member._id.equals(req.user.id));
+
+    if (!isCreator && !isAssigned && !isProjectOwner && !isProjectMember) {
+      return res.status(403).json({ success: false, message: 'Only task owner, assignee, or project member can update this task' });
+    }
+
+    const isAuthorizedForTargetProject =
+      projectRecord.owner._id.equals(req.user.id) ||
+      projectRecord.members.some((member) => member._id.equals(req.user.id)) ||
+      isCreator;
+
+    if (!isAuthorizedForTargetProject) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to move task to this project' });
+    }
+
+    if (assignedTo) {
+      const assignedUser = await User.findById(assignedTo);
+      if (!assignedUser) {
+        return res.status(400).json({ success: false, message: 'Assigned user must be valid' });
+      }
     }
 
     task.title = title;
